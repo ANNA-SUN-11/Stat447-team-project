@@ -178,4 +178,29 @@ single_result <- list(
 
 print(single_result)
 
+# Calibration Plot: Prediction Interval Coverage
+library(ggplot2)
+
+ggplot(metrics, aes(x = Model, y = Coverage, fill = Model)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 0.95, linetype = "dashed", color = "red") +
+  labs(
+    title = "Prediction Interval Coverage Comparison",
+    y = "Coverage",
+    x = "Model") +
+  theme_minimal()
+
+#Trace Plot
+mcmc_trace(
+  as.array(results[[1]]$bayes$fit),
+  pars = c("alpha", "beta", "sigma_obs")
+)
+
+#Posterior Distributions for Key Parameters
+mcmc_areas(
+  as.array(results[[1]]$bayes$fit),
+  pars = c("alpha", "beta"),
+  prob = 0.95
+)
+
 
