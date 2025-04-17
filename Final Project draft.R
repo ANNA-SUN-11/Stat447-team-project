@@ -64,3 +64,40 @@ generated quantities {
   }
 }
 "
+#Compare ARIMA and BSTS model
+
+results <- list()
+metrics <- data.frame()
+
+for (c in valid_countries[1:5]) {  
+  tryCatch({
+    country_data <- merged_data %>%
+      filter(country == c) %>%
+      arrange(year) %>%
+      select(year, gdp_growth, lagged_expenditure) %>%
+      na.omit()  #Looping through first 5 countries, if it works for 5, it can scale up to all
+    
+    # Split data
+    split_index <- floor(0.7 * nrow(country_data))
+    train <- country_data[1:split_index, ]
+    test <- country_data[(split_index + 1):nrow(country_data), ]#Set training dataset and testing dataset
+    
+    # ARIMA Baseline
+    arima_model <- auto.arima(ts(train$gdp_growth, frequency = 1))#automatically selects the best ARIMA(p,d,q) model
+    arima_fc <- forecast(arima_model, h = nrow(test)) #predicts GDP growth h steps ahead
+    
+    # Bayesian Model with Stan
+    stan_data <- list(
+      T = nrow(train),
+      y = train$gdp_growth,
+      x = train$lagged_expenditure,
+      T_forecast = nrow(test)
+    )
+    
+    stan_fit <- stan(
+      model_code = stan_model_code,
+      data = stan_data,
+      iter = 2000,
+      chains = 4,
+      control = list(adapt_delta = 0.95)
+    )
