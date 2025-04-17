@@ -1,7 +1,13 @@
 library(rstan)
 library(forecast)
+library(ggplot2)
 library(dplyr)
 library(bayesplot)
+library(loo)
+
+# Configure Stan
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
 
 # Load and preprocess data
 merged_data <- read.csv("merged_data.csv") %>%
@@ -99,5 +105,17 @@ for (c in valid_countries[1:5]) {
       data = stan_data,
       iter = 2000,
       chains = 4,
-      control = list(adapt_delta = 0.95)
+      control = list(adapt_delta = 0.95) #controls step size to avoid divergent transitions
     )
+    
+    # Posterior Analysis
+    posterior <- extract(stan_fit)
+    
+    # Point forecasts (posterior median)
+    bayes_fc <- apply(posterior$y_forecast, 2, median)#takes the median across all posterior draws for each future time point.
+    
+    # Prediction intervals
+    bayes_interval <- apply(posterior$y_forecast, 2, 
+                            quantile, probs = c(0.025, 0.975)) #Computes 95% posterior predictive intervals for each forecasted time point.
+    
+    
