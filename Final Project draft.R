@@ -18,7 +18,7 @@ merged_data <- read.csv("merged_data.csv") %>%
     gdp_growth_scaled = scale(gdp_growth)              # Standardize GDP growth
   ) %>%
   ungroup()
-
+#according to the results in ts, we choose 2 with high RMSE and 2 with low RMSE 
 valid_countries <- c("United States", "New Zealand", "Venezuela", "Equatorial Guinea")
 
 # Store results
