@@ -1,8 +1,16 @@
+library(rstan)
 library(forecast)
 library(ggplot2)
 library(dplyr)
+library(bayesplot)
+library(loo)
 
-#predict by using the ARMIMA model 
+# Configure Stan
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+#Finding countries from ARIMA model
+#predict by using the ARIMA model 
 merged_data <- read.csv("/Users/weilinsun/Downloads/merged_data.csv")
 
 # Identify countries only with >= 36 years of data
@@ -133,19 +141,10 @@ abline(h = length(pit_values)/10, col = "red", lty = 2)
 abline(h = length(pit_values) * 0.095, col = "blue", lty = 3)
 
 
-library(rstan)
-library(forecast)
-library(ggplot2)
-library(dplyr)
-library(bayesplot)
-library(loo)
-
-# Configure Stan
-options(mc.cores = parallel::detectCores())
-rstan_options(auto_write = TRUE)
+#Using 4 countries: United States, New Zealand, Venezuela and Equatorial Guinea to analyze
 
 # Load and preprocess data
-merged_data <- read.csv("merged_data.csv") %>%
+merged_data <- merged_data %>%
   arrange(country, year) %>%
   group_by(country) %>%
   mutate(
