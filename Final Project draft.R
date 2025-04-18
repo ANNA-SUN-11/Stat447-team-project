@@ -1,3 +1,138 @@
+library(forecast)
+library(ggplot2)
+library(dplyr)
+
+#predict by using the ARMIMA model 
+merged_data <- read.csv("/Users/weilinsun/Downloads/merged_data.csv")
+
+# Identify countries only with >= 36 years of data
+valid_countries <- merged_data %>%
+  group_by(country) %>%
+  filter(n() >= 36) %>%
+  distinct(country) %>%
+  pull(country)
+
+print(valid_countries)
+
+#Set up the results list for each country in ARIMA model 
+results <- list()
+
+for (c in valid_countries) {
+  ts_data <- merged_data %>%
+    filter(country == c) %>%
+    arrange(year)
+  
+  gdp_ts <- ts(ts_data$gdp_growth, start = min(ts_data$year), frequency = 1)
+  
+  # Fit ARIMA model by auto regression command
+  tryCatch({
+    model <- auto.arima(gdp_ts)
+    results[[c]] <- model
+  }, error = function(e) {
+    message("Failed to fit model for ", c, ": ", e$message)
+  })
+}
+
+#   access selected_models 
+selected_models <- results[valid_countries]
+lapply(selected_models, summary)
+
+get_order <- function(m) arimaorder(m)
+model_orders <- sapply(selected_models, get_order)
+print(t(model_orders))  # Transpose for readability
+
+#  Forecast and Accuracy Evaluation
+forecast_results <- list()
+accuracy_results <- data.frame()
+
+for (c in valid_countries) {
+  ts_data <- merged_data %>%
+    filter(country == c) %>%
+    arrange(year)
+  #We use the first 30 data as the training data, and the rest for the test
+  if (nrow(ts_data) < 36) {
+    message("Skipping ", c, ": not enough data")
+    next
+  }
+  
+  gdp_ts <- ts(ts_data$gdp_growth, start = min(ts_data$year), frequency = 1)
+  train <- window(gdp_ts, end = time(gdp_ts)[30])
+  test <- window(gdp_ts, start = time(gdp_ts)[31])
+  
+  tryCatch({
+    model <- auto.arima(train)
+    fc <- forecast(model, h = length(test))
+    forecast_results[[c]] <- fc
+    
+    acc <- accuracy(fc, test)
+    acc_df <- data.frame(
+      Country = c,
+      RMSE = acc["Test set", "RMSE"],
+      MAE = acc["Test set", "MAE"],
+      MAPE = acc["Test set", "MAPE"],
+      Model = paste0("ARIMA(", paste(arimaorder(model), collapse = ","), ")")
+    )
+    accuracy_results <- rbind(accuracy_results, acc_df)
+  }, error = function(e) {
+    message("Forecast failed for ", c, ": ", e$message)
+  })
+}
+
+print(accuracy_results)
+
+# Check for the coverage of 95% prediction interval 
+coverage_results <- data.frame()
+
+for (country in names(forecast_results)) {
+  fc <- forecast_results[[country]]
+  
+  #extract actual test values
+  test_actual <- as.numeric(fc$x)[(length(fc$x) - length(fc$mean) + 1):length(fc$x)]
+  
+  lower <- fc$lower[, "95%"]
+  upper <- fc$upper[, "95%"]
+  
+  #use the actual data check for the coverage
+  covered <- test_actual >= lower & test_actual <= upper
+  coverage_rate <- mean(covered, na.rm = TRUE)
+  
+  coverage_results <- rbind(
+    coverage_results,
+    data.frame(
+      Country = country,
+      Coverage_95 = coverage_rate,
+      Width_95 = mean(upper - lower)
+    )
+  )
+}
+
+print(coverage_results)
+
+#check for PIT Histogram 
+pit_values <- numeric()
+
+for (country in names(forecast_results)) {
+  fc <- forecast_results[[country]]
+  
+  var_est <- fc$sigma2
+  if (is.null(var_est) || is.na(var_est) || !is.numeric(var_est)) {
+    var_est <- fc$model$sigma2
+  }
+  if (is.null(var_est) || is.na(var_est) || !is.numeric(var_est)) {
+    message("Skipping ", country, ": invalid variance (both sigma2 and model$sigma2)")
+    next
+  }
+  
+  test_actual <- as.numeric(fc$x)[(length(fc$x) - length(fc$mean) + 1):length(fc$x)]
+  pit <- pnorm(test_actual, mean = fc$mean, sd = sqrt(var_est))
+  pit_values <- c(pit_values, pit)
+}
+
+hist(pit_values, breaks = 10, main = "PIT Histogram", xlab = "Probability Integral Transform")
+abline(h = length(pit_values)/10, col = "red", lty = 2)
+abline(h = length(pit_values) * 0.095, col = "blue", lty = 3)
+
+
 library(rstan)
 library(forecast)
 library(ggplot2)
