@@ -9,7 +9,7 @@ library(loo)
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
 
-#Finding countries from ARIMA model
+#Sorting countries from ARIMA model
 #predict by using the ARIMA model 
 merged_data <- read.csv("merged_data.csv")
 
@@ -57,7 +57,9 @@ for (c in valid_countries) {
   ts_data <- merged_data %>%
     filter(country == c) %>%
     arrange(year)
+  
   #We use the first 30 data as the training data, and the rest for the test
+  
   if (nrow(ts_data) < 36) {
     message("Skipping ", c, ": not enough data")
     next
@@ -66,7 +68,8 @@ for (c in valid_countries) {
   gdp_ts <- ts(ts_data$gdp_growth, start = min(ts_data$year), frequency = 1)
   train <- window(gdp_ts, end = time(gdp_ts)[30])
   test <- window(gdp_ts, start = time(gdp_ts)[31])
-  
+
+  # Showing the accuracy results of ARIMA modle
   tryCatch({
     model <- auto.arima(train)
     fc <- forecast(model, h = length(test))
@@ -226,7 +229,8 @@ for (c in valid_countries) {
       cat("Insufficient data for", c, "\n")
       next
     }
-    
+
+    # 70% for training, 30% for testing
     split_index <- floor(0.7 * nrow(country_data))
     train <- country_data[1:split_index, ]
     test <- country_data[(split_index + 1):nrow(country_data), ]
@@ -317,7 +321,7 @@ for (c in valid_countries) {
 
 
 
-# Calibration Plot: Prediction Interval Coverage
+# Calibration Plot: Prediction Interval Coverage Comparison
 library(ggplot2)
 
 ggplot(metrics, aes(x = Model, y = Coverage, fill = Model)) +
