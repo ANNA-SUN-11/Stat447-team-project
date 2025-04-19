@@ -11,7 +11,7 @@ rstan_options(auto_write = TRUE)
 
 #Finding countries from ARIMA model
 #predict by using the ARIMA model 
-merged_data <- read.csv("/Users/weilinsun/Downloads/merged_data.csv")
+merged_data <- read.csv("merged_data.csv")
 
 # Identify countries only with >= 36 years of data
 valid_countries <- merged_data %>%
